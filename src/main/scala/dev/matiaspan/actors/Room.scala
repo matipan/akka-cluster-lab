@@ -7,6 +7,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.cluster.sharding.typed.scaladsl.ClusterSharding
 import akka.cluster.sharding.typed.scaladsl.EntityRef
 import akka.actor.typed.ActorSystem
+import akka.cluster.typed.Cluster
 
 sealed trait Room
 case class Join(username: String) extends Room

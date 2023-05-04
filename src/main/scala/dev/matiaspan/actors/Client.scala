@@ -8,6 +8,7 @@ import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.actor.typed.ActorSystem
 import akka.cluster.sharding.typed.scaladsl.ClusterSharding
 import akka.cluster.sharding.typed.scaladsl.Entity
+import akka.cluster.typed.Cluster
 
 /*
  * We basically need to make sure that users are sharded so that a given
@@ -34,19 +35,52 @@ object Client {
   // actor system it belongs to which is basically a room so we can 
   // treat it as an ActorRef when we send it to apply that manages the
   // messages of this actor
-  def initSharding(system: ActorSystem[Nothing], room: ActorRef[Room]): Unit =
+  def initSharding(system: ActorSystem[Nothing], room: ActorRef[Room]): Unit = {
     ClusterSharding(system).init(Entity(TypeKey) { entityContext =>
       Client(entityContext.entityId, room)
     })
 
-  def apply(username: String, room: ActorRef[Room]): Behavior[Client.Command] = Behaviors.receive { (context, message) =>
-    message match {
-      case MessageNotification(from, content) =>
-        println(s"[$username] - ${from}: ${content}")
-      case MessageInput(content) =>
-        room ! NewMessage(username, content)
-    }
+    ChildClient.initSharding(system)
+  }
 
+  def apply(username: String, room: ActorRef[Room]): Behavior[Client.Command] = Behaviors.setup { context => 
+    val cluster = Cluster(context.system)
+    val sharding = ClusterSharding(context.system)
+
+    val childClient = sharding.entityRefFor(ChildClient.TypeKey, username)
+
+    Behaviors.receiveMessage { message =>
+      message match {
+        case MessageNotification(from, content) =>
+          childClient ! ChildClient.ChildCommand()
+
+          println(s"[$username] - ${from}: ${content}")
+          println(s"node address: ${cluster.selfMember.address}")
+        case MessageInput(content) =>
+          room ! NewMessage(username, content)
+      }
+
+      Behaviors.same
+    }
+  }
+}
+
+object ChildClient {
+
+  sealed trait Command
+  case class ChildCommand() extends Command with CborSerializable
+
+  val TypeKey: EntityTypeKey[ChildClient.Command] =
+    EntityTypeKey[ChildClient.Command]("ChildClient")
+
+  def initSharding(system: ActorSystem[Nothing]): Unit =
+    ClusterSharding(system).init(Entity(TypeKey) { entityContext =>
+      ChildClient(entityContext.entityId)
+    })
+
+  def apply(username: String): Behavior[ChildClient.Command] = Behaviors.receive { (context, message) =>
+    val cluster = Cluster(context.system)
+    println(s"child for $username lives at ${cluster.selfMember.address}")
     Behaviors.same
   }
 }
