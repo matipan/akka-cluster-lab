@@ -54,8 +54,7 @@ object Client {
         case MessageNotification(from, content) =>
           childClient ! ChildClient.ChildCommand()
 
-          println(s"[$username] - ${from}: ${content}")
-          println(s"node address: ${cluster.selfMember.address}")
+          println(s"[$username@${cluster.selfMember.address}]- ${from}: ${content}")
         case MessageInput(content) =>
           room ! NewMessage(username, content)
       }
