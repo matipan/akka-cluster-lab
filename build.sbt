@@ -7,6 +7,19 @@ lazy val akkaVersion    = "2.8.1"
 // sbt tasks, consider https://github.com/spray/sbt-revolver/
 fork := true
 
+
+import sbtassembly.AssemblyPlugin.autoImport._
+
+assemblyMergeStrategy in assembly := {
+  case PathList(rest @ _*) =>
+    MergeStrategy.first // Use your project's version of the classes
+  case x =>
+    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    oldStrategy(x)
+}
+
+mainClass in assembly := Some("dev.matiaspan.Main")
+
 lazy val root = (project in file(".")).
   settings(
     inThisBuild(List(
@@ -25,7 +38,7 @@ lazy val root = (project in file(".")).
       "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion     % Test,
       "org.scalatest"     %% "scalatest"                % "3.2.9"         % Test,
 
-	  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
-      "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion
+	  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % "provided",
+      "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion % "provided"
     )
   )
