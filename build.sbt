@@ -11,6 +11,7 @@ fork := true
 import sbtassembly.AssemblyPlugin.autoImport._
 
 assemblyMergeStrategy in assembly := {
+  case "reference.conf" => MergeStrategy.concat
   case PathList(rest @ _*) =>
     MergeStrategy.first // Use your project's version of the classes
   case x =>
@@ -38,7 +39,7 @@ lazy val root = (project in file(".")).
       "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion     % Test,
       "org.scalatest"     %% "scalatest"                % "3.2.9"         % Test,
 
-	  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion % "provided",
-      "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion % "provided"
+	  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
+      "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion
     )
   )
