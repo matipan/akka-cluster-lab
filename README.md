@@ -1,30 +1,28 @@
-# Sample Akka HTTP server
+# Toy project for Akka Sharding
 
-This is a sample Akka HTTP endpoint keeping an in-memory database of users that can be created and listed.
+This is a toy project that we are using to understand how Akka Cluster / Sharding works in practice. The application is a simple 
+chat app that has a single Room actor and multiple Client actors that are sharded across the entire cluster.
 
-Sources in the sample:
+## Deploying
+The idea is to test this setup locally. To do that you have to have `kind` and `kubectl` installed locally. Once that is taken
+care of, you can run the following commands:
 
-* `QuickstartApp.scala` -- contains the main method which bootstraps the application
-* `UserRoutes.scala` -- Akka HTTP `routes` defining exposed endpoints
-* `UserRegistry.scala` -- the actor which handles the registration requests
-* `JsonFormats.scala` -- converts the JSON data from requests into Scala types and from Scala types into JSON responses
+```sh
+# create the kind cluster
+$ kind create cluster --config k8s/kind-cluster.yaml
 
-## Interacting with the sample
+# build an image for the service
+$ docker build -t clusterchat:0.0.1 .
 
-After starting the sample with `sbt run` the following requests can be made:
+# load the image into the cluster
+$ kind load docker-image clusterchat:0.0.1 -n cluster-chat
 
-List all users:
+# create the namespace, deployment, service and roles in k8s
+$ kubectl apply -f k8s/spec.yaml
 
-    curl http://localhost:8080/users
+# check that pods start running successfully
+$ kubectl -n clusterchat get pods --watch
 
-Create a user:
-
-    curl -XPOST http://localhost:8080/users -d '{"name": "Liselott", "age": 32, "countryOfResidence": "Norway"}' -H "Content-Type:application/json"
-
-Get the details of one user:
-
-    curl http://localhost:8080/users/Liselott
-
-Delete a user:
-
-    curl -XDELETE http://localhost:8080/users/Liselott
+# once pods are running, test it with a join
+$ curl -X POST -v 'http://localhost:32000/join?username=cakka'
+```

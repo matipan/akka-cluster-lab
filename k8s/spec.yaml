@@ -1,3 +1,10 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: clusterchat
+  labels:
+    name: clusterchat
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
