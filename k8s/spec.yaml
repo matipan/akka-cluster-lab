@@ -1,7 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    app: clusterchat
   name: clusterchat
+  namespace: clusterchat
 spec:
   replicas: 3
   selector:
@@ -13,21 +16,68 @@ spec:
         app: clusterchat
     spec:
       containers:
-        - name: clusterchat
-          image: <your-docker-username>/clusterchat:latest
-          ports:
-            - containerPort: 8080
-
-              ---
+      - name: clusterchat
+        image: clusterchat:0.0.1
+        imagePullPolicy: Never
+        env:
+          - name: HTTP_PORT
+            value: '8080'
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: management
+        livenessProbe:
+          httpGet:
+            path: /alive
+            port: management
+        ports:
+        - name: management
+          containerPort: 8558
+          protocol: TCP
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        resources:
+          limits:
+            memory: 1024Mi
+          requests:
+            cpu: 2
+            memory: 1024Mi
+---
 apiVersion: v1
 kind: Service
 metadata:
   name: clusterchat
+  namespace: clusterchat
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
-    app: clusterchat
+    app.kubernetes.io/name: clusterchat
   ports:
-    - protocol: TCP
-      port: 8081
-      targetPort: 8080
+    - port: 8081
+      targetPort: 8081
+      nodePort: 32000
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-reader
+  namespace: clusterchat
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: read-pods
+  namespace: clusterchat
+subjects:
+- kind: User
+  name: system:serviceaccount:clusterchat:default
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io

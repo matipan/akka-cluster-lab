@@ -19,6 +19,8 @@ import akka.cluster.sharding.typed.scaladsl.EntityRef
 import dev.matiaspan.actors._
 
 import com.typesafe.config.ConfigFactory
+import akka.management.scaladsl.AkkaManagement
+import akka.management.cluster.bootstrap.ClusterBootstrap
 
 object Main extends App {
   val config = ConfigFactory.load()
@@ -27,6 +29,12 @@ object Main extends App {
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
 
   val sharding = ClusterSharding(system)
+
+  // Akka Management hosts the HTTP routes used by bootstrap
+  AkkaManagement.get(system).start();
+
+  // Starting the bootstrap process needs to be done explicitly
+  ClusterBootstrap.get(system).start();
 
   val room: ActorRef[Room] = system
 

@@ -1,5 +1,6 @@
 lazy val akkaHttpVersion = "10.5.1"
 lazy val akkaVersion    = "2.8.1"
+lazy val akkaManagementVersion    = "1.3.0"
 
 // Run in a separate JVM, to make sure sbt waits until all threads have
 // finished before returning.
@@ -39,7 +40,11 @@ lazy val root = (project in file(".")).
       "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion     % Test,
       "org.scalatest"     %% "scalatest"                % "3.2.9"         % Test,
 
-	  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
-      "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion
+      "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
+      "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
+
+      "com.lightbend.akka.management" %% "akka-management-cluster-http" % akkaManagementVersion,
+      "com.lightbend.akka.management" %% "akka-management-cluster-bootstrap" % akkaManagementVersion,
+      "com.lightbend.akka.discovery" %% "akka-discovery-kubernetes-api" % akkaManagementVersion
     )
   )
