@@ -66,7 +66,7 @@ object Main extends App {
     )
 
   val port = config.getInt("chat.http.port")
-  val bindingFuture = Http().bindAndHandle(routes, "localhost", port)
+  val bindingFuture = Http().bindAndHandle(routes, "0.0.0.0", port)
 
   bindingFuture.foreach { binding =>
     println(s"Server online at http://${binding.localAddress.getHostString}:${binding.localAddress.getPort}/")
