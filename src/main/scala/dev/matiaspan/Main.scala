@@ -21,6 +21,7 @@ import com.typesafe.config.ConfigFactory
 import akka.management.scaladsl.AkkaManagement
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.http.scaladsl.server.Directives
+import scala.concurrent.Await
 
 object Main extends App {
   val config = ConfigFactory.load()
@@ -57,7 +58,11 @@ class Routes(orderService: OrderService, implicit val system: ActorSystem[Nothin
       path(IntNumber) { id =>
         get {
           val order = orderService.getOrder(id)
-          complete("something")
+
+          Await.result(order, scala.concurrent.duration.Duration.Inf) match {
+            case Some(order) => complete(order)
+            case None => complete("order not found")
+          }
         }
       }
     )

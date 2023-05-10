@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: clusterchat
-        image: clusterchat:0.0.2
+        image: clusterchat:0.0.4
         imagePullPolicy: Never
         env:
           - name: HTTP_PORT
