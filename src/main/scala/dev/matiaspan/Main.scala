@@ -4,7 +4,6 @@ import akka.stream.ActorMaterializer
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.Directives._
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -21,54 +20,46 @@ import dev.matiaspan.actors._
 import com.typesafe.config.ConfigFactory
 import akka.management.scaladsl.AkkaManagement
 import akka.management.cluster.bootstrap.ClusterBootstrap
+import akka.http.scaladsl.server.Directives
 
 object Main extends App {
   val config = ConfigFactory.load()
 
-  implicit val system: ActorSystem[Room] = ActorSystem(Room(), "chat")
+  implicit val system = ActorSystem[Nothing](Behaviors.empty, "OrderService")
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
-
-  val sharding = ClusterSharding(system)
-
-  // Akka Management hosts the HTTP routes used by bootstrap
   AkkaManagement.get(system).start();
-
-  // Starting the bootstrap process needs to be done explicitly
   ClusterBootstrap.get(system).start();
 
-  val room: ActorRef[Room] = system
+  val sharding = ClusterSharding(system)
+  Order.initSharding(system)
 
-  val routes: Route = concat(
-    post {
-      path("message") {
-        parameters("username", "content") { (username, content) =>
-          room ! actors.NewMessage(username, content)
-          complete("message sent")
-        }
-      }
-    },
-    post {
-      path("join") {
-        parameters("username") { username =>
-          room ! actors.Join(username)
-          complete("user joined")
-        }
-      }
-    },
-    post {
-      path("leave") {
-        parameters("username") { username =>
-          room ! actors.Leave(username)
-          complete("user joined")
-        }
-      }
-    }
-    )
+  val orderService: OrderService = new OrderService(system)
+  val routes = new Routes(orderService, system, executionContext).routes
 
   val port = config.getInt("chat.http.port")
   val bindingFuture = Http().bindAndHandle(routes, "0.0.0.0", port)
 
   bindingFuture.foreach { binding =>
     println(s"Server online at http://${binding.localAddress.getHostString}:${binding.localAddress.getPort}/")
+  }
+}
+
+class Routes(orderService: OrderService, implicit val system: ActorSystem[Nothing], implicit val executionContext: ExecutionContextExecutor) extends Directives with JsonSupport  {
+  val routes: Route = pathPrefix("orders") {
+    concat(
+      post {
+        parameters("id","items","price","userID") { (id, items, price, userID) =>
+          orderService.createOrder(new OrderModel(id.toInt, items.toInt, price.toFloat, userID.toInt))
+
+          complete("order created")
+        }
+      },
+      path(IntNumber) { id =>
+        get {
+          val order = orderService.getOrder(id)
+          complete("something")
+        }
+      }
+    )
   }
 }
