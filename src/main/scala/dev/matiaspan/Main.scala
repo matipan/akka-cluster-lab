@@ -32,7 +32,7 @@ object Main extends App {
   AkkaManagement.get(system).start();
   ClusterBootstrap.get(system).start();
 
-  //PodDeletionCost(system).start()
+  PodDeletionCost(system).start()
 
   val sharding = ClusterSharding(system)
   Order.initSharding(system)
@@ -53,9 +53,12 @@ class Routes(orderService: OrderService, implicit val system: ActorSystem[Nothin
     concat(
       post {
         parameters("id","items","price","userID") { (id, items, price, userID) =>
-          orderService.createOrder(new OrderModel(id.toInt, items.toInt, price.toFloat, userID.toInt))
+          val order = orderService.createOrder(new OrderModel(id.toInt, items.toInt, price.toFloat, userID.toInt))
 
-          complete("order created")
+          Await.result(order, scala.concurrent.duration.Duration.Inf) match {
+            case Some(order) => complete(200, order)
+            case None => complete(400, "order already exists")
+          }
         }
       },
       path(IntNumber) { id =>
@@ -68,6 +71,6 @@ class Routes(orderService: OrderService, implicit val system: ActorSystem[Nothin
           }
         }
       }
-    )
+      )
   }
 }

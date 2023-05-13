@@ -20,13 +20,18 @@ class OrderService(actorSystem: ActorSystem[Nothing]) {
 
   val sharding = ClusterSharding(system)
 
-  def createOrder(order: OrderModel) {
-    sharding.entityRefFor(Order.TypeKey, order.id.toString) ! Order.Create(order.id, order.items, order.price, order.userID)
+  def createOrder(order: OrderModel): Future[Option[OrderModel]] = {
+    val actor = sharding.entityRefFor(Order.TypeKey, order.id.toString)
+
+    actor.ask[Order.Response](ref => Order.CreateSync(order.id, order.items, order.price, order.userID, ref)).map {
+      case Order.OrderResponse(order) => order
+    }.recover {
+      case _ => None
+    }
   }
 
   def getOrder(id: Int): Future[Option[OrderModel]] = {
     val order = sharding.entityRefFor(Order.TypeKey, id.toString)
-
 
     order.ask[Order.Response](ref => Order.Get(id, ref)).map {
       case Order.OrderResponse(order) => order
