@@ -29,7 +29,7 @@ class OrderService(actorSystem: ActorSystem[Nothing]) {
 
 
     order.ask[Order.Response](ref => Order.Get(id, ref)).map {
-      case Order.OrderResponse(order) => Some(order)
+      case Order.OrderResponse(order) => order
     }.recover {
       case _ => None
     }

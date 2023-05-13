@@ -19,7 +19,7 @@ object Order {
   case class Get(id: Int, replyTo: ActorRef[Response]) extends Command with CborSerializable
 
   sealed trait Response
-  case class OrderResponse(order: OrderModel) extends Response with CborSerializable
+  case class OrderResponse(order: Option[OrderModel]) extends Response with CborSerializable
 
   val TypeKey: EntityTypeKey[Order.Command] =
     EntityTypeKey[Order.Command]("Order")
@@ -47,7 +47,11 @@ object Order {
           state = OrderModel(id, items, price, userID)
         case Get(id, replyTo) =>
           println(s"[${cluster.selfMember.address}]  [$id] - Getting order")
-          replyTo ! OrderResponse(state)
+          if (state.id == 0) {
+            replyTo ! OrderResponse(None)
+          } else {
+            replyTo ! OrderResponse(Some(state))
+          }
       }
 
       Behaviors.same
