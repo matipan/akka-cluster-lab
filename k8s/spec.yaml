@@ -1,30 +1,30 @@
 kind: Namespace
 apiVersion: v1
 metadata:
-  name: clusterchat
+  name: orders
   labels:
-    name: clusterchat
+    name: orders
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: clusterchat
-  name: clusterchat
-  namespace: clusterchat
+    app: orders
+  name: orders
+  namespace: orders
 spec:
   replicas: 4
   selector:
     matchLabels:
-      app: clusterchat
+      app: orders
   template:
     metadata:
       labels:
-        app: clusterchat
+        app: orders
     spec:
       containers:
-      - name: clusterchat
-        image: clusterchat:0.0.4
+      - name: orders
+        image: orders:0.0.2
         imagePullPolicy: Never
         env:
           - name: HTTP_PORT
@@ -54,12 +54,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: clusterchat
-  namespace: clusterchat
+  name: orders
+  namespace: orders
 spec:
   type: NodePort
   selector:
-    app: clusterchat
+    app: orders
   ports:
     - port: 8080
       targetPort: 8080
@@ -69,11 +69,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mgmt
-  namespace: clusterchat
+  namespace: orders
 spec:
   type: NodePort
   selector:
-    app: clusterchat
+    app: orders
   ports:
     - port: 8558
       targetPort: 8558
@@ -83,7 +83,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: pod-reader
-  namespace: clusterchat
+  namespace: orders
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -94,10 +94,10 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: read-pods
-  namespace: clusterchat
+  namespace: orders
 subjects:
 - kind: User
-  name: system:serviceaccount:clusterchat:default
+  name: system:serviceaccount:orders:default
 roleRef:
   kind: Role
   name: pod-reader

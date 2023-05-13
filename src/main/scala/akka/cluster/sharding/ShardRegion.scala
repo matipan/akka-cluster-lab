@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2022 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import java.net.URLEncoder
-
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.{ Future, Promise }
@@ -13,7 +12,6 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.runtime.AbstractFunction1
 import scala.util.{ Failure, Success }
-
 import akka.Done
 import akka.actor._
 import akka.annotation.ApiMayChange
@@ -27,7 +25,6 @@ import akka.cluster.MemberStatus
 import akka.cluster.sharding.ClusterShardingSettings.PassivationStrategy
 import akka.cluster.sharding.Shard.ShardStats
 import akka.cluster.sharding.internal.RememberEntitiesProvider
-import akka.cluster.sharding.internal.RememberEntityStarterManager
 import akka.event.Logging
 import akka.pattern.ask
 import akka.pattern.pipe
@@ -632,7 +629,6 @@ private[akka] class ShardRegion(
 
   // sort by age, oldest first
   val ageOrdering = Member.ageOrdering
-  // membersByAge is only used for tracking where coordinator is running
   var membersByAge: immutable.SortedSet[Member] = immutable.SortedSet.empty(ageOrdering)
   // membersByAge contains members with these status
   private val memberStatusOfInterest: Set[MemberStatus] =
@@ -653,12 +649,6 @@ private[akka] class ShardRegion(
   var retryCount = 0
   val initRegistrationDelay: FiniteDuration = 100.millis.max(retryInterval / 2 / 2 / 2)
   var nextRegistrationDelay: FiniteDuration = initRegistrationDelay
-
-  private val rememberEntityStarterManager =
-    if (rememberEntitiesProvider.isDefined)
-      context.actorOf(RememberEntityStarterManager.props(context.self, settings), "RememberEntityStarter")
-    else
-      context.system.deadLetters
 
   // for CoordinatedShutdown
   val gracefulShutdownProgress = Promise[Done]()
@@ -711,8 +701,8 @@ private[akka] class ShardRegion(
     case None    => ClusterSettings.DcRolePrefix + cluster.settings.SelfDataCenter
   }
 
-  def matchingCoordinatorRole(member: Member): Boolean =
-    member.hasRole(targetDcRole) && coordinatorSingletonRole.forall(member.hasRole)
+  def matchingRole(member: Member): Boolean =
+    member.hasRole(targetDcRole) && role.forall(member.hasRole)
 
   /**
    * When leaving the coordinator singleton is started rather quickly on next
@@ -764,7 +754,6 @@ private[akka] class ShardRegion(
     case msg: RestartShard                       => deliverMessage(msg, sender())
     case msg: StartEntity                        => deliverStartEntity(msg, sender())
     case msg: SetActiveEntityLimit               => deliverToAllShards(msg, sender())
-    case msg: CoordinatorCommand                 => deliverToCoordinator(msg, sender())
     case msg if extractEntityId.isDefinedAt(msg) => deliverMessage(msg, sender())
     case unknownMsg =>
       log.warning("{}: Message does not have an extractor defined in shard so it was ignored: {}", typeName, unknownMsg)
@@ -774,7 +763,7 @@ private[akka] class ShardRegion(
     changeMembers(
       immutable.SortedSet
         .empty(ageOrdering)
-        .union(state.members.filter(m => memberStatusOfInterest(m.status) && matchingCoordinatorRole(m))))
+        .union(state.members.filter(m => memberStatusOfInterest(m.status) && matchingRole(m))))
   }
 
   def receiveClusterEvent(evt: ClusterDomainEvent): Unit = evt match {
@@ -788,7 +777,7 @@ private[akka] class ShardRegion(
     case MemberRemoved(m, _) =>
       if (m.uniqueAddress == cluster.selfUniqueAddress)
         context.stop(self)
-      else if (matchingCoordinatorRole(m))
+      else if (matchingRole(m))
         changeMembers(membersByAge.filterNot(_.uniqueAddress == m.uniqueAddress))
 
     case MemberDowned(m) =>
@@ -809,7 +798,7 @@ private[akka] class ShardRegion(
   }
 
   private def addMember(m: Member): Unit = {
-    if (matchingCoordinatorRole(m) && memberStatusOfInterest(m.status)) {
+    if (matchingRole(m) && memberStatusOfInterest(m.status)) {
       // replace, it's possible that the status, or upNumber is changed
       changeMembers(membersByAge.filterNot(_.uniqueAddress == m.uniqueAddress) + m)
     }
@@ -1273,9 +1262,6 @@ private[akka] class ShardRegion(
   def deliverToAllShards(msg: Any, snd: ActorRef): Unit =
     shards.values.foreach(_.tell(msg, snd))
 
-  def deliverToCoordinator(msg: CoordinatorCommand, snd: ActorRef): Unit =
-    coordinator.foreach(_.tell(msg, snd))
-
   def deliverMessage(msg: Any, snd: ActorRef): Unit =
     msg match {
       case RestartShard(shardId) =>
@@ -1347,8 +1333,7 @@ private[akka] class ShardRegion(
                     extractEntityId,
                     extractShardId,
                     handOffStopMessage,
-                    rememberEntitiesProvider,
-                    rememberEntityStarterManager)
+                    rememberEntitiesProvider)
                   .withDispatcher(context.props.dispatcher),
                 name))
             shardsByRef = shardsByRef.updated(shard, id)

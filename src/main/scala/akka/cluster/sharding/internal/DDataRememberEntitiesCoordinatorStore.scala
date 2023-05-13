@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2022 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.internal
@@ -12,10 +12,8 @@ import akka.cluster.Cluster
 import akka.cluster.ddata.GSet
 import akka.cluster.ddata.GSetKey
 import akka.cluster.ddata.Replicator
-import akka.cluster.ddata.Replicator.ReadAll
-import akka.cluster.ddata.Replicator.ReadMajorityPlus
-import akka.cluster.ddata.Replicator.WriteAll
-import akka.cluster.ddata.Replicator.WriteMajorityPlus
+import akka.cluster.ddata.Replicator.ReadMajority
+import akka.cluster.ddata.Replicator.WriteMajority
 import akka.cluster.ddata.SelfUniqueAddress
 import akka.cluster.sharding.ClusterShardingSettings
 import akka.cluster.sharding.ShardRegion.ShardId
@@ -44,23 +42,16 @@ private[akka] final class DDataRememberEntitiesCoordinatorStore(
   implicit val node: Cluster = Cluster(context.system)
   implicit val selfUniqueAddress: SelfUniqueAddress = SelfUniqueAddress(node.selfUniqueAddress)
 
-  private val readConsistency = settings.tuningParameters.coordinatorStateReadMajorityPlus match {
-    case Int.MaxValue => ReadAll(settings.tuningParameters.waitingForStateTimeout)
-    case additional   => ReadMajorityPlus(settings.tuningParameters.waitingForStateTimeout, additional, majorityMinCap)
-  }
-  private val writeConsistency = settings.tuningParameters.coordinatorStateWriteMajorityPlus match {
-    case Int.MaxValue => WriteAll(settings.tuningParameters.updatingStateTimeout)
-    case additional   => WriteMajorityPlus(settings.tuningParameters.updatingStateTimeout, additional, majorityMinCap)
-  }
+  private val readMajority = ReadMajority(settings.tuningParameters.waitingForStateTimeout, majorityMinCap)
+  private val writeMajority = WriteMajority(settings.tuningParameters.updatingStateTimeout, majorityMinCap)
 
   private val AllShardsKey = GSetKey[String](s"shard-${typeName}-all")
-  private var retryGetCounter = 0
   private var allShards: Option[Set[ShardId]] = None
   private var coordinatorWaitingForShards: Option[ActorRef] = None
 
   // eager load of remembered shard ids
   def getAllShards(): Unit = {
-    replicator ! Replicator.Get(AllShardsKey, readConsistency)
+    replicator ! Replicator.Get(AllShardsKey, readMajority)
   }
   getAllShards()
 
@@ -83,35 +74,31 @@ private[akka] final class DDataRememberEntitiesCoordinatorStore(
       onGotAllShards(Set.empty)
 
     case Replicator.GetFailure(AllShardsKey, _) =>
-      retryGetCounter += 1
-      val template =
-        "Remember entities coordinator store unable to get initial shards within 'waiting-for-state-timeout': {} millis (retrying)"
-      if (retryGetCounter < 5)
-        log.warning(template, readConsistency.timeout.toMillis)
-      else
-        log.error(template, readConsistency.timeout.toMillis)
+      log.error(
+        "The ShardCoordinator was unable to get all shards state within 'waiting-for-state-timeout': {} millis (retrying)",
+        readMajority.timeout.toMillis)
       // repeat until GetSuccess
       getAllShards()
 
     case RememberEntitiesCoordinatorStore.AddShard(shardId) =>
-      replicator ! Replicator.Update(AllShardsKey, GSet.empty[String], writeConsistency, Some((sender(), shardId)))(
+      replicator ! Replicator.Update(AllShardsKey, GSet.empty[String], writeMajority, Some((sender(), shardId)))(
         _ + shardId)
 
     case Replicator.UpdateSuccess(AllShardsKey, Some((replyTo: ActorRef, shardId: ShardId))) =>
-      log.debug("Remember entities coordinator store shards successfully updated with {}", shardId)
+      log.debug("The coordinator shards state was successfully updated with {}", shardId)
       replyTo ! RememberEntitiesCoordinatorStore.UpdateDone(shardId)
 
     case Replicator.UpdateTimeout(AllShardsKey, Some((replyTo: ActorRef, shardId: ShardId))) =>
       log.error(
-        "Remember entities coordinator store unable to update shards state within 'updating-state-timeout': {} millis (retrying), adding shard={}",
-        writeConsistency.timeout.toMillis,
+        "The ShardCoordinator was unable to update shards distributed state within 'updating-state-timeout': {} millis (retrying), adding shard={}",
+        writeMajority.timeout.toMillis,
         shardId)
       replyTo ! RememberEntitiesCoordinatorStore.UpdateFailed(shardId)
 
     case Replicator.ModifyFailure(key, error, cause, Some((replyTo: ActorRef, shardId: ShardId))) =>
       log.error(
         cause,
-        "Remember entities coordinator store was unable to add shard [{}] (key [{}], failed with error: {})",
+        "The remember entities store was unable to add shard [{}] (key [{}], failed with error: {})",
         shardId,
         key,
         error)
@@ -119,7 +106,6 @@ private[akka] final class DDataRememberEntitiesCoordinatorStore(
   }
 
   def onGotAllShards(shardIds: Set[ShardId]): Unit = {
-    retryGetCounter = 0
     coordinatorWaitingForShards match {
       case Some(coordinator) =>
         coordinator ! RememberEntitiesCoordinatorStore.RememberedShards(shardIds)

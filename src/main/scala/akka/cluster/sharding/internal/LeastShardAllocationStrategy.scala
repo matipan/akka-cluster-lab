@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2023 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2020-2022 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.internal
@@ -48,8 +48,6 @@ import akka.cluster.sharding.internal.AbstractLeastShardAllocationStrategy.Shard
       rebalanceInProgress: Set[ShardId]): Future[Set[ShardId]] = {
     import math.max
     import math.min
-
-    println("[KLAUSITO] ARE WE REBALANCING?")
 
     def limit(numberOfShards: Int): Int =
       max(1, min((relativeLimit * numberOfShards).toInt, absoluteLimit))

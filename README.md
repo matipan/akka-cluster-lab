@@ -18,16 +18,16 @@ To set this up locally you have to have `kind` and `kubectl` installed. Once tha
 $ kind create cluster --config k8s/kind-cluster.yaml
 
 # build an image for the service
-$ docker build -t clusterchat:0.0.1 .
+$ docker build -t orders:0.0.1 .
 
 # load the image into the cluster
-$ kind load docker-image clusterchat:0.0.1 -n cluster-chat
+$ kind load docker-image orders:0.0.1 -n cluster-chat
 
 # create the namespace, deployment, service and roles in k8s
 $ kubectl apply -f k8s/spec.yaml
 
 # check that pods start running successfully
-$ kubectl -n clusterchat get pods --watch
+$ kubectl -n orders get pods --watch
 
 # once pods are running, test it by creating an order
 $ curl -X POST -v 'http://localhost:8080/orders?id=123&items=4&price=10.5&userID=4'

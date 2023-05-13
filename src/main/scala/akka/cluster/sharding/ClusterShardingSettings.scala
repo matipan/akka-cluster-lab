@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2023 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2015-2022 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
@@ -1238,6 +1238,53 @@ final class ClusterShardingSettings(
       coordinatorSingletonSettings,
       leaseSettings)
 
+  // bin compat for 2.5.21
+  @deprecated(
+    "Use the ClusterShardingSettings factory methods or the constructor including shardRegionQueryTimeout instead",
+    since = "2.5.21")
+  def this(
+      role: Option[String],
+      rememberEntities: Boolean,
+      journalPluginId: String,
+      snapshotPluginId: String,
+      stateStoreMode: String,
+      passivateIdleEntityAfter: FiniteDuration,
+      tuningParameters: ClusterShardingSettings.TuningParameters,
+      coordinatorSingletonSettings: ClusterSingletonManagerSettings) =
+    this(
+      role,
+      rememberEntities,
+      journalPluginId,
+      snapshotPluginId,
+      stateStoreMode,
+      passivateIdleEntityAfter,
+      3.seconds,
+      tuningParameters,
+      coordinatorSingletonSettings,
+      None)
+
+  // included for binary compatibility reasons
+  @deprecated(
+    "Use the ClusterShardingSettings factory methods or the constructor including passivateIdleEntityAfter instead",
+    since = "2.5.18")
+  def this(
+      role: Option[String],
+      rememberEntities: Boolean,
+      journalPluginId: String,
+      snapshotPluginId: String,
+      stateStoreMode: String,
+      tuningParameters: ClusterShardingSettings.TuningParameters,
+      coordinatorSingletonSettings: ClusterSingletonManagerSettings) =
+    this(
+      role,
+      rememberEntities,
+      journalPluginId,
+      snapshotPluginId,
+      stateStoreMode,
+      Duration.Zero,
+      tuningParameters,
+      coordinatorSingletonSettings)
+
   import ClusterShardingSettings.{ RememberEntitiesStoreCustom, StateStoreModeDData, StateStoreModePersistence }
   require(
     stateStoreMode == StateStoreModePersistence || stateStoreMode == StateStoreModeDData || stateStoreMode == RememberEntitiesStoreCustom,
@@ -1247,17 +1294,6 @@ final class ClusterShardingSettings(
   @InternalApi
   private[akka] def shouldHostShard(cluster: Cluster): Boolean =
     role.forall(cluster.selfMember.roles.contains)
-
-  /** If true, this node should run the shard coordinator, otherwise just a shard proxy or shard region on this node. */
-  @InternalApi
-  private[akka] def shouldHostCoordinator(cluster: Cluster): Boolean =
-    coordinatorSingletonRole.forall(cluster.selfMember.roles.contains)
-
-  /**
-   * INTERNAL API
-   */
-  @InternalApi private[akka] def coordinatorSingletonRole: Option[String] =
-    if (coordinatorSingletonOverrideRole) role else coordinatorSingletonSettings.role
 
   @InternalApi
   private[akka] val passivationStrategy: ClusterShardingSettings.PassivationStrategy =

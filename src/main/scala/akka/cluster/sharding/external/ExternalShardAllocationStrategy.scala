@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2023 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2019-2022 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding.external
@@ -33,18 +33,6 @@ import akka.util.Timeout
 object ExternalShardAllocationStrategy {
 
   type ShardRegion = ActorRef
-
-  /**
-   * Scala API
-   */
-  def apply(systemProvider: ClassicActorSystemProvider, typeName: String): ExternalShardAllocationStrategy =
-    new ExternalShardAllocationStrategy(systemProvider, typeName)
-
-  /**
-   * Java API
-   */
-  def create(systemProvider: ClassicActorSystemProvider, typeName: String): ExternalShardAllocationStrategy =
-    apply(systemProvider, typeName)
 
   // local only messages
   private[akka] final case class GetShardLocation(shard: ShardId)
@@ -110,11 +98,6 @@ class ExternalShardAllocationStrategy(systemProvider: ClassicActorSystemProvider
   private val log = Logging(system, classOf[ExternalShardAllocationStrategy])
 
   private var shardState: ActorRef = _
-
-  // Eagerly initialize the DistributedData extension on all nodes. Otherwise, if not used for other things,
-  // the DistributedData Replicator is started via the DDataStateActor by the shard coordinator on one node,
-  // but not on other nodes.
-  DistributedData(systemProvider)
 
   private[akka] def createShardStateActor(): ActorRef = {
     system

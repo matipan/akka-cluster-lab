@@ -1,5 +1,5 @@
 lazy val akkaHttpVersion = "10.5.1"
-lazy val akkaVersion    = "2.8.1"
+lazy val akkaVersion    = "2.7.0"
 lazy val akkaManagementVersion    = "1.3.0"
 
 // Run in a separate JVM, to make sure sbt waits until all threads have
@@ -21,6 +21,11 @@ assemblyMergeStrategy in assembly := {
 }
 
 mainClass in assembly := Some("dev.matiaspan.Main")
+
+fork in run := true
+javaOptions in run ++= Seq(
+  "-Dconfig.resource=local.conf"
+)
 
 lazy val root = (project in file(".")).
   settings(

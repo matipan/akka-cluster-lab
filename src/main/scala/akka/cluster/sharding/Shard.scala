@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2009-2023 Lightbend Inc. <https://www.lightbend.com>
+ * Copyright (C) 2009-2022 Lightbend Inc. <https://www.lightbend.com>
  */
 
 package akka.cluster.sharding
 
 import java.net.URLEncoder
 import java.util
-
 import akka.actor.Actor
 import akka.actor.ActorLogging
 import akka.actor.ActorRef
@@ -29,18 +28,18 @@ import akka.cluster.sharding.internal.EntityPassivationStrategy
 import akka.cluster.sharding.internal.RememberEntitiesShardStore
 import akka.cluster.sharding.internal.RememberEntitiesShardStore.GetEntities
 import akka.cluster.sharding.internal.RememberEntitiesProvider
+import akka.cluster.sharding.internal.RememberEntityStarter
 import akka.coordination.lease.scaladsl.Lease
 import akka.coordination.lease.scaladsl.LeaseProvider
 import akka.event.LoggingAdapter
 import akka.pattern.pipe
-import akka.util.Clock
 import akka.util.MessageBufferMap
 import akka.util.OptionVal
 import akka.util.PrettyDuration._
 import akka.util.unused
-import scala.concurrent.duration._
 
-import akka.cluster.sharding.internal.RememberEntityStarterManager
+import scala.collection.immutable.Set
+import scala.concurrent.duration._
 
 /**
  * INTERNAL API
@@ -95,8 +94,7 @@ private[akka] object Shard {
       extractEntityId: ShardRegion.ExtractEntityId,
       extractShardId: ShardRegion.ExtractShardId,
       handOffStopMessage: Any,
-      rememberEntitiesProvider: Option[RememberEntitiesProvider],
-      rememberEntityStarterManager: ActorRef): Props =
+      rememberEntitiesProvider: Option[RememberEntitiesProvider]): Props =
     Props(
       new Shard(
         typeName,
@@ -106,8 +104,7 @@ private[akka] object Shard {
         extractEntityId,
         extractShardId,
         handOffStopMessage,
-        rememberEntitiesProvider,
-        rememberEntityStarterManager)).withDeploy(Deploy.local)
+        rememberEntitiesProvider)).withDeploy(Deploy.local)
 
   case object PassivateIntervalTick extends NoSerializationVerificationNeeded
 
@@ -418,8 +415,7 @@ private[akka] class Shard(
     extractEntityId: ShardRegion.ExtractEntityId,
     @unused extractShardId: ShardRegion.ExtractShardId,
     handOffStopMessage: Any,
-    rememberEntitiesProvider: Option[RememberEntitiesProvider],
-    rememberEntityStarterManager: ActorRef)
+    rememberEntitiesProvider: Option[RememberEntitiesProvider])
     extends Actor
     with ActorLogging
     with Stash
@@ -462,7 +458,7 @@ private[akka] class Shard(
   private var handOffStopper: Option[ActorRef] = None
   private var preparingForShutdown = false
 
-  private val passivationStrategy = EntityPassivationStrategy(settings, clock = () => Clock(context.system))
+  private val passivationStrategy = EntityPassivationStrategy(settings)
 
   import context.dispatcher
   private val passivateIntervalTask = passivationStrategy.scheduledInterval.map { interval =>
@@ -596,7 +592,9 @@ private[akka] class Shard(
     if (ids.nonEmpty) {
       entities.alreadyRemembered(ids)
       log.debug("{}: Restarting set of [{}] entities", typeName, ids.size)
-      rememberEntityStarterManager ! RememberEntityStarterManager.StartEntities(self, shardId, ids)
+      context.actorOf(
+        RememberEntityStarter.props(context.parent, self, shardId, ids, settings),
+        "RememberEntitiesStarter")
     }
     shardInitialized()
   }
@@ -1183,7 +1181,6 @@ private[akka] class Shard(
 
   override def postStop(): Unit = {
     passivateIntervalTask.foreach(_.cancel())
-    lease.foreach(_.release())
     log.debug("{}: Shard [{}] shutting down", typeName, shardId)
   }
 
