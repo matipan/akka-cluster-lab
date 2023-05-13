@@ -13,7 +13,12 @@ metadata:
   name: orders
   namespace: orders
 spec:
-  replicas: 4
+  replicas: 8
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: orders
@@ -24,11 +29,15 @@ spec:
     spec:
       containers:
       - name: orders
-        image: orders:0.0.2
+        image: orders:0.0.6
         imagePullPolicy: Never
         env:
           - name: HTTP_PORT
             value: '8080'
+          - name: KUBERNETES_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
         readinessProbe:
           httpGet:
             path: /ready
@@ -46,10 +55,10 @@ spec:
           protocol: TCP
         resources:
           limits:
-            memory: 1024Mi
+            memory: 512Mi
           requests:
-            cpu: 2
-            memory: 1024Mi
+            cpu: 1
+            memory: 512Mi
 ---
 apiVersion: v1
 kind: Service
@@ -101,4 +110,27 @@ subjects:
 roleRef:
   kind: Role
   name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-patcher
+  namespace: orders
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["pods"]
+    verbs: ["patch"] # requires "patch" to annotate the pod
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: annotate-pods
+  namespace: orders
+subjects:
+  - kind: User
+    name: system:serviceaccount:orders:default
+roleRef:
+  kind: Role
+  name: pod-patcher
   apiGroup: rbac.authorization.k8s.io

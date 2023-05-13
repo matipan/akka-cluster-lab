@@ -50,6 +50,7 @@ lazy val root = (project in file(".")).
 
       "com.lightbend.akka.management" %% "akka-management-cluster-http" % akkaManagementVersion,
       "com.lightbend.akka.management" %% "akka-management-cluster-bootstrap" % akkaManagementVersion,
-      "com.lightbend.akka.discovery" %% "akka-discovery-kubernetes-api" % akkaManagementVersion
+      "com.lightbend.akka.discovery" %% "akka-discovery-kubernetes-api" % akkaManagementVersion,
+      "com.lightbend.akka.management" %% "akka-rolling-update-kubernetes" % akkaManagementVersion
     )
   )

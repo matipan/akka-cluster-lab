@@ -22,6 +22,7 @@ import akka.management.scaladsl.AkkaManagement
 import akka.management.cluster.bootstrap.ClusterBootstrap
 import akka.http.scaladsl.server.Directives
 import scala.concurrent.Await
+import akka.rollingupdate.kubernetes.PodDeletionCost
 
 object Main extends App {
   val config = ConfigFactory.load()
@@ -30,6 +31,8 @@ object Main extends App {
   implicit val executionContext: ExecutionContextExecutor = system.executionContext
   AkkaManagement.get(system).start();
   ClusterBootstrap.get(system).start();
+
+  //PodDeletionCost(system).start()
 
   val sharding = ClusterSharding(system)
   Order.initSharding(system)
@@ -60,8 +63,8 @@ class Routes(orderService: OrderService, implicit val system: ActorSystem[Nothin
           val order = orderService.getOrder(id)
 
           Await.result(order, scala.concurrent.duration.Duration.Inf) match {
-            case Some(order) => complete(order)
-            case None => complete("order not found")
+            case Some(order) => complete(200, order)
+            case None => complete(404, "order not found")
           }
         }
       }
