@@ -18,7 +18,7 @@ To set this up locally you have to have `kind` and `kubectl` installed. Once tha
 $ kind create cluster --config k8s/kind-cluster.yaml
 
 # build an image for the service
-$ docker build -t orders:0.0.1 .
+$ docker build -t orders:0.0.7-nopdc .
 
 # load the image into the cluster
 $ kind load docker-image orders:0.0.1 -n cluster-chat

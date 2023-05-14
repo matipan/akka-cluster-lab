@@ -32,7 +32,7 @@ object Main extends App {
   AkkaManagement.get(system).start();
   ClusterBootstrap.get(system).start();
 
-  PodDeletionCost(system).start()
+  //PodDeletionCost(system).start()
 
   val sharding = ClusterSharding(system)
   Order.initSharding(system)
