@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: orders
-        image: orders:0.0.6
+        image: orders:0.0.7-nopdc
         imagePullPolicy: Never
         env:
           - name: HTTP_PORT

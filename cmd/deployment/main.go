@@ -113,10 +113,16 @@ func main() {
 				getOrder(order, getLimit, c)
 
 				// now we get an order that we know exists
+				randOrder := -1
 				muCreate.Lock()
-				order = orders[rand.Intn(len(orders))]
+				if len(orders) > 0 {
+					randOrder = orders[rand.Intn(len(orders))]
+				}
 				muCreate.Unlock()
-				getOrder(order, getLimit, c)
+
+				if randOrder != -1 {
+					getOrder(order, getLimit, c)
+				}
 			}
 		}
 	}(ctx)

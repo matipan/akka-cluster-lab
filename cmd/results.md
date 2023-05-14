@@ -279,3 +279,26 @@ Status report for get methods:
 }
         P99=25.576274ms - P95=17.739866ms - P50=8.265392ms
 ```
+
+<--------------------------------------------------------------------->
+Same extreme test but with the fix that makes create methods be sync as the GETs are. The error rate now shows up
+
+Error rate total = 8%
+```sh
+$ go run deployment/main.go -d 2m -q 20
+time elapsed
+Status report for create methods:
+{
+  "0": 79,
+  "200": 866,
+  "400": 3
+}
+        P99=26.074795ms - P95=22.898999ms - P50=11.46299ms
+Status report for get methods:
+{
+  "0": 77,
+  "200": 2,
+  "404": 898
+}
+        P99=22.678563ms - P95=17.868125ms - P50=7.347684ms
+```
