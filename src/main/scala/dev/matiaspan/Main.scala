@@ -57,20 +57,26 @@ class Routes(orderService: OrderService, implicit val system: ActorSystem[Nothin
 
           Await.result(order, scala.concurrent.duration.Duration.Inf) match {
             case Some(order) => complete(200, order)
-            case None => complete(400, "order already exists")
+            case None => complete(400, "failed to create order, it may already exist")
           }
         }
       },
       path(IntNumber) { id =>
-        get {
-          val order = orderService.getOrder(id)
-
-          Await.result(order, scala.concurrent.duration.Duration.Inf) match {
-            case Some(order) => complete(200, order)
-            case None => complete(404, "order not found")
-          }
-        }
-      }
-      )
+        concat(
+          get {
+            Await.result(orderService.getOrder(id), scala.concurrent.duration.Duration.Inf) match {
+              case Some(order) => complete(200, order)
+              case None => complete(404, "order not found")
+            }
+          },
+          put {
+            parameters("items", "price") { (items, price) =>
+              Await.result(orderService.addItems(id, items.toInt, price.toFloat), scala.concurrent.duration.Duration.Inf) match {
+                case Some(reason) => complete(500, reason)
+                case None => complete(200, "order updated")
+              }
+            }
+          })
+      })
   }
 }

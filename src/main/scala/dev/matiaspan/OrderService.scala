@@ -23,8 +23,19 @@ class OrderService(actorSystem: ActorSystem[Nothing]) {
   def createOrder(order: OrderModel): Future[Option[OrderModel]] = {
     val actor = sharding.entityRefFor(Order.TypeKey, order.id.toString)
 
-    actor.ask[Order.Response](ref => Order.CreateSync(order.id, order.items, order.price, order.userID, ref)).map {
+    actor.ask[Order.Response](ref => Order.Create(order.id, order.items, order.price, order.userID, ref)).map {
       case Order.OrderResponse(order) => order
+    }.recover {
+      case _ => None
+    }
+  }
+
+  def addItems(id: Int, items: Int, price: Float): Future[Option[String]] = {
+    val actor = sharding.entityRefFor(Order.TypeKey, id.toString)
+
+    actor.ask[Order.Response](ref => Order.AddItems(items, price, ref)).map {
+      case Order.OrderUpdateConfirmed(_) => None
+      case Order.OrderUpdateRejected(reason) => Some(reason)
     }.recover {
       case _ => None
     }
@@ -33,7 +44,7 @@ class OrderService(actorSystem: ActorSystem[Nothing]) {
   def getOrder(id: Int): Future[Option[OrderModel]] = {
     val order = sharding.entityRefFor(Order.TypeKey, id.toString)
 
-    order.ask[Order.Response](ref => Order.Get(id, ref)).map {
+    order.ask[Order.Response](ref => Order.Get(ref)).map {
       case Order.OrderResponse(order) => order
     }.recover {
       case _ => None

@@ -21,7 +21,7 @@ $ kind create cluster --config k8s/kind-cluster.yaml
 $ docker build -t orders:0.0.7-nopdc .
 
 # load the image into the cluster
-$ kind load docker-image orders:0.0.1 -n cluster-chat
+$ kind load docker-image orders:0.0.7-nopdc -n cluster-chat
 
 # create the namespace, deployment, service and roles in k8s
 $ kubectl apply -f k8s/spec.yaml
